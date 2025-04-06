@@ -1,0 +1,131 @@
+<template>
+  <div class="how-to-play">
+    <header>
+      <h1>🧠 How to Play <span>Word Duel</span></h1>
+      <p>Think fast. Spell smart. Score big. Here’s everything you need to know to dominate the duel.</p>
+    </header>
+
+    <main>
+      <div class="card">
+        <h2>🎮 Single Player Mode</h2>
+        <ul>
+          <li>Start by entering your name.</li>
+          <li>You’ll get a fresh 5×5 grid filled with random letters.</li>
+          <li>You have <strong>30 seconds</strong> to build as many valid words as possible.</li>
+          <li>Words must connect letters that touch horizontally, vertically, or diagonally.</li>
+          <li>Points are based on word length — longer words score more!</li>
+          <li>When the timer ends, your final score is displayed.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>👥 Multiplayer Mode</h2>
+        <ul>
+          <li>Player 1 enters their name and plays the first round.</li>
+          <li>The exact same board is passed to Player 2.</li>
+          <li>Both players get 30 seconds each.</li>
+          <li>Scores are revealed after both rounds.</li>
+          <li><strong>Highest score wins the duel!</strong></li>
+        </ul>
+      </div>
+
+      <div class="card tips">
+        <h2>💡 Tips & Tricks</h2>
+        <ul>
+          <li>Each letter can only be used once per word.</li>
+          <li>Words must be at least 3 letters long to score.</li>
+          <li>Use diagonals — they open up more word options!</li>
+          <li>Plan ahead — speed is key, but strategy wins games.</li>
+          <li>Practice in solo mode to sharpen your reflexes before challenging friends.</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'InfoPage'
+}
+</script>
+
+<style scoped>
+.how-to-play {
+  font-family: 'Lexend', sans-serif;
+  padding: 40px 20px;
+  background: linear-gradient(to bottom right, #3D6E7B, #46234D);
+  color: white;
+  min-height: 100vh;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+header h1 {
+  font-size: 2.7rem;
+  margin-bottom: 10px;
+  color: #E0911F;
+}
+
+header h1 span {
+  color: #fff;
+}
+
+header p {
+  font-size: 1.2rem;
+  color: #ddd;
+}
+
+main {
+  display: grid;
+  gap: 30px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 25px 30px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.card h2 {
+  font-size: 1.6rem;
+  color: #E0911F;
+  margin-bottom: 15px;
+}
+
+.card ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.card ul li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  color: #e0e0e0;
+}
+
+.card ul li::before {
+  content: '✔️';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  font-size: 1rem;
+}
+
+.tips ul li::before {
+  content: '💡';
+}
+</style>

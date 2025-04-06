@@ -1,35 +1,21 @@
 <template>
-  <!-- Start Game Button and Name Input -->
-<div v-if="!gameStarted" class="start-screen">
-  <div v-if="!nameProvided" class="name-entry">
-    <label for="username" class="name-label">Enter Your Name:</label>
-    <input
-      v-model="username"
-      id="username"
-      type="text"
-      placeholder="e.g. Alex"
-      class="name-input"
-    />
-    <button
-      class="start-btn"
-      @click="startGame"
-      :disabled="!username"
-    >
-      Start Game
+  <!-- Start Game Button -->
+  <div v-if="!gameStarted" class="start-screen">
+    <button class="start-btn" @click="startGame">
+      Start {{ currentPlayer }}'s Turn
     </button>
   </div>
 
-  <p v-else>Your game is about to begin, {{ username }}!</p>
-</div>
-
-  <!-- Game UI -->
-  <div v-else>
-    <div class="timer">
-      <p v-if="timeLeft > 0">⏳ {{ timeLeft }}s</p>
-      <p v-else>⏱️ Time's up!</p>
-    </div>
+<!-- Game UI -->
+<div v-else>
+  <!-- ✅ Total Points Display at Top -->
   <div class="points top-score">
-    <h3>Total Points: {{ totalPoints }}</h3>
+    <h3>{{ currentPlayer }}'s Score: {{ totalPoints }}</h3>
+  </div>
+
+  <div class="timer">
+    <p v-if="timeLeft > 0">⏳ {{ timeLeft }}s</p>
+    <p v-else>⏱️ Time's up!</p>
   </div>
 
     <div class="grid-container">
@@ -49,15 +35,13 @@
 
     <form @submit.prevent="submitWord" class="input-container">
       <input
-        ref="wordInput"
         v-model="word"
         type="text"
         placeholder="Enter a word..."
         class="word-input"
         @input="filterInput"
-        :disabled="timeLeft <= 0 "
+        :disabled="timeLeft <= 0"
         :class="{ 'input-disabled': timeLeft <= 0 || isAnimating }"
-        autofocus
       />
       <button
         type="submit"
@@ -84,31 +68,33 @@
 </template>
 
 <script setup>
-/* eslint-disable */
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+// Import Vue functions
+import { ref, onBeforeUnmount, watch } from 'vue'
+// Import axios for API requests
 import axios from 'axios'
+// Firebase functions
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc } from 'firebase/firestore'
 
+import { getFirestore, collection, addDoc } from 'firebase/firestore'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 const firebaseConfig = {
-  apiKey: "AIzaSyCx8hJDYzHBvlakxZQxj0Pk5VOzvG69Ww8",
-  authDomain: "wordgame-cf892.firebaseapp.com",
-  databaseURL: "https://wordgame-cf892-default-rtdb.firebaseio.com",
-  projectId: "wordgame-cf892",
-  storageBucket: "wordgame-cf892.appspot.com",
-  messagingSenderId: "897393117287",
-  appId: "1:897393117287:web:02c7158971650a5cee2cc2",
-  measurementId: "G-GYKQW85K14"
+  apiKey: 'AIzaSyCx8hJDYzHBvlakxZQxj0Pk5VOzvG69Ww8',
+  authDomain: 'wordgame-cf892.firebaseapp.com',
+  databaseURL: 'https://wordgame-cf892-default-rtdb.firebaseio.com',
+  projectId: 'wordgame-cf892',
+  storageBucket: 'wordgame-cf892.appspot.com',
+  messagingSenderId: '897393117287',
+  appId: '1:897393117287:web:02c7158971650a5cee2cc2',
+  measurementId: 'G-GYKQW85K14'
 }
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
-import { nextTick } from 'vue'
-
-const wordInput = ref(null)
+// State variables
 const timeLeft = ref(60)
 let timerInterval = null
-
 const gameStarted = ref(false)
 const letters = ref([])
 const word = ref('')
@@ -121,19 +107,40 @@ const totalPoints = ref(0)
 const isDuplicateWord = ref(false)
 const isAnimating = ref(false)
 const fadeIndices = ref([])
-const username = ref('')  // User's name input field
-const nameProvided = ref(false)  // Flag to check if name is provided
+const currentPlayer = ref('Player 1')
+
+// Letter points
 
 const letterPoints = {
-  A: 1, E: 1, I: 1, O: 1, U: 1, L: 1, N: 1, S: 1, T: 1, R: 1,
-  D: 2, G: 2,
-  B: 3, C: 3, M: 3, P: 3,
-  F: 4, H: 4, V: 4, W: 4, Y: 4,
+  A: 1,
+  E: 1,
+  I: 1,
+  O: 1,
+  U: 1,
+  L: 1,
+  N: 1,
+  S: 1,
+  T: 1,
+  R: 1,
+  D: 2,
+  G: 2,
+  B: 3,
+  C: 3,
+  M: 3,
+  P: 3,
+  F: 4,
+  H: 4,
+  V: 4,
+  W: 4,
+  Y: 4,
   K: 5,
-  J: 8, X: 8,
-  Q: 10, Z: 10
+  J: 8,
+  X: 8,
+  Q: 10,
+  Z: 10
 }
 
+// Generate grid of letters
 const generateGrid = () => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const vowels = 'AEIOU'
@@ -157,44 +164,82 @@ const generateGrid = () => {
   letters.value = grid
 }
 
-const submitScoreToFirestore = async () => {
-  try {
-    await addDoc(collection(db, 'gameScores'), {
-      score: totalPoints.value,
-      timestamp: new Date().toISOString(),
-      username: username.value // Use the provided username
-    })
-    console.log('✅ Score submitted to Firestore')
-  } catch (error) {
-    console.error('❌ Error submitting score:', error)
+// Reset the game state
+const resetGame = () => {
+  timeLeft.value = 60
+  gameStarted.value = false
+  letters.value = []
+  word.value = ''
+  submittedWords.value = []
+  highlightedIndex.value = []
+  matchHistory.value = []
+  submittedIndices.value = []
+  isValid.value = false
+  totalPoints.value = 0
+  isDuplicateWord.value = false
+  isAnimating.value = false
+  fadeIndices.value = []
+
+  if (timerInterval) {
+    clearInterval(timerInterval)
   }
 }
 
+// Start the game and initialize timer
 const startGame = () => {
-  if (!username.value.trim()) {
-    alert("Please enter your name to start the game!")
-    return
-  }
-
-  nameProvided.value = true
   gameStarted.value = true
   generateGrid()
-  timerInterval = setInterval(async () => {
+
+  timerInterval = setInterval(() => {
     if (timeLeft.value > 0) {
       timeLeft.value--
     } else {
       clearInterval(timerInterval)
-      await submitScoreToFirestore()
-      alert("Time is up! End of turn!")
+      alert("Time's up! End of turn!")
+      setTimeout(() => {
+        switchPlayer()
+        resetGame()
+      }, 2000)
     }
   }, 1000)
 }
 
-onBeforeUnmount(() => {
-  clearInterval(timerInterval)
-})
+// Save score to Firebase
+const saveScoreToFirebase = async () => {
+  try {
+    const playerName = currentPlayer.value
+    const score = totalPoints.value
+    // const scoresRef = collection(db, 'dualPlayer') // Collection name should match Firebase
+    await addDoc(collection(db, 'dualPlayer'), {
+      player: playerName,
+      score: score,
+      timestamp: new Date()
+    })
+    console.log(`Score for ${playerName} saved to Firebase.`)
+  } catch (error) {
+    console.error('Error saving score to Firebase:', error)
+  }
+}
 
+// Switch to the next player
+const switchPlayer = () => {
+  saveScoreToFirebase().then(() => {
+    if (currentPlayer.value === 'Player 1') {
+      currentPlayer.value = 'Player 2'
+    } else {
+      currentPlayer.value = 'Player 1'
+      // After Player 2's turn, redirect to results page
+      setTimeout(() => {
+        router.push({ name: 'Results' })
+      }, 900)
+    }
+    totalPoints.value = 0
+  })
+}
+
+// Watch for word changes
 watch(word, (newWord, oldWord) => {
+  // Handle character input changes for highlighting cells
   if (newWord.length > oldWord.length) {
     const newChar = newWord.at(-1).toLowerCase()
     const matchIndex = letters.value.findIndex(
@@ -215,6 +260,7 @@ watch(word, (newWord, oldWord) => {
   checkForDuplicateWord(newWord)
 })
 
+// Handle input filtering
 const filterInput = () => {
   const allowedLetters = letters.value.map(l => l.toLowerCase())
   let filtered = ''
@@ -234,6 +280,7 @@ const filterInput = () => {
   word.value = filtered
 }
 
+// Check if word is valid
 const isValidWord = async (word) => {
   if (word.length < 3) {
     return false
@@ -242,11 +289,12 @@ const isValidWord = async (word) => {
     const response = await axios.get(`https://api.datamuse.com/words?sp=${word}&max=1`)
     return response.data.length > 0
   } catch (error) {
-    console.error("Error checking word validity:", error)
+    console.error('Error checking word validity:', error)
     return false
   }
 }
 
+// Validate word and check for duplicates
 const validateWord = async (newWord) => {
   if (newWord.trim().length === 0) {
     isValid.value = false
@@ -259,6 +307,7 @@ const checkForDuplicateWord = (newWord) => {
   isDuplicateWord.value = submittedWords.value.includes(newWord.trim().toLowerCase())
 }
 
+// Get points for a word
 const getWordPoints = (word) => {
   return word.split('').reduce((points, letter) => {
     const upperLetter = letter.toUpperCase()
@@ -266,26 +315,21 @@ const getWordPoints = (word) => {
   }, 0)
 }
 
+// Submit word
 const submitWord = async () => {
   const trimmed = word.value.trim().toLowerCase()
   if (!trimmed) return
 
   const valid = await isValidWord(trimmed)
   if (!valid) {
-    alert("The word is not valid.")
+    alert('The word is not valid.')
     word.value = ''
-    nextTick(() => {
-      wordInput.value?.focus()
-    })
     return
   }
 
   if (submittedWords.value.includes(trimmed)) {
-    alert("You have already submitted this word!")
+    alert('You have already submitted this word!')
     word.value = ''
-    nextTick(() => {
-      wordInput.value?.focus()
-    })
     return
   }
 
@@ -312,48 +356,27 @@ const submitWord = async () => {
   setTimeout(() => {
     submittedIndices.value = []
   }, 1000)
-
-  // ✅ Refocus input after all that
-  nextTick(() => {
-    wordInput.value?.focus()
-  })
 }
 
-
+// Generate random letter
 const generateRandomLetter = () => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   return alphabet[Math.floor(Math.random() * alphabet.length)]
 }
+
+// Clean up before component is unmounted
+onBeforeUnmount(() => {
+  clearInterval(timerInterval)
+})
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
-
+/* App background */
 :deep(body) {
   background: linear-gradient(to bottom right, #3D6E7B, #46234D);
-  margin: 0;
   font-family: 'Lexend', sans-serif;
+  margin: 0;
   color: white;
-}
-
-.name-entry {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 30px 20px;
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
-  max-width: 360px;
-  margin: 0 auto;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
-}
-
-.name-label {
-  font-size: 1.2rem;
-  color: #ffe4b3;
-  margin-bottom: 6px;
 }
 
 .start-screen {
@@ -361,34 +384,9 @@ const generateRandomLetter = () => {
   padding: 60px 20px;
 }
 
-.name-input {
-  padding: 12px 18px;
-  font-size: 1.2rem;
-  border: none;
-  border-radius: 10px;
-  outline: none;
-  width: 260px;
-  background-color: #2e2e2e;
-  color: white;
-  border: 2px solid #E0911F;
-  margin-bottom: 20px;
-}
-.points.top-score {
-  margin-top: 20px;
-  margin-bottom: 10px;
-  text-align: center;
-}
-
-.points.top-score h3 {
-  font-size: 1.6rem;
-  color: #E0911F;
-  text-shadow: 0 0 6px #e0911f99;
-}
-
-
 .start-btn {
   padding: 16px 36px;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: bold;
   background-color: #E0911F;
   color: white;
@@ -403,13 +401,13 @@ const generateRandomLetter = () => {
   transform: scale(1.05);
 }
 
-/* Timer */
-.timer {
-  font-size: 1.5rem;
+/* Timer + player label */
+.timer, .player-label {
   text-align: center;
-  padding: 10px;
-  color: #ffe6b7;
+  font-size: 1.3rem;
   font-weight: 600;
+  color: #ffe6b7;
+  margin-top: 10px;
 }
 
 /* Grid */
@@ -419,21 +417,25 @@ const generateRandomLetter = () => {
   grid-template-rows: repeat(5, 70px);
   gap: 10px;
   justify-content: center;
-  margin: 20px auto;
+  align-items: center;
+  margin: 30px auto;
 }
 
 .grid-cell {
+  width: 70px;
+  height: 70px;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(6px);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 26px;
   font-weight: bold;
-  color: white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.2s ease;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  transition: 0.3s;
+  color: #fff;
+  border: 2px solid transparent;
 }
 
 .grid-cell.highlighted {
@@ -445,57 +447,78 @@ const generateRandomLetter = () => {
   opacity: 0.4;
 }
 
+.fade-animation {
+  animation: fadeInOut 0.6s ease;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* Input & Submit */
 .input-container {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 30px;
+  gap: 10px;
+  margin-top: 20px;
   flex-wrap: wrap;
+  max-width: 500px;
+  margin-inline: auto;
+}
+.points.top-score {
+  text-align: center;
+  margin-top: 25px;
+}
+
+.points.top-score h3 {
+  font-size: 1.6rem;
+  color: #E0911F;
+  text-shadow: 0 0 6px #e0911f99;
 }
 
 .word-input {
-  padding: 12px 18px;
-  font-size: 1.1rem;
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 1rem;
   border-radius: 10px;
   background: #2e2e2e;
   color: white;
-  border: 2px solid #444;
+  border: none;
   outline: none;
-  width: 220px;
 }
 
-.word-input.input-disabled {
-  background-color: #444;
-  cursor: not-allowed;
+.input-disabled {
+  background-color: #555;
 }
 
 .submit-btn {
   padding: 12px 20px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: bold;
   background-color: #E0911F;
   color: white;
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.3s ease;
 }
+
 .submit-btn:hover {
   background-color: #ffb238;
 }
 
-/* Words + Points */
+/* Submitted words */
 .submitted-words {
-  margin-top: 40px;
-  padding: 20px;
   background: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  margin: 30px auto 10px;
   border-radius: 12px;
   max-width: 500px;
-  margin-left: auto;
-  margin-right: auto;
-  backdrop-filter: blur(6px);
-  color: #eee;
+  backdrop-filter: blur(8px);
   text-align: center;
+  color: #eee;
 }
 
 .submitted-words ul {
@@ -504,10 +527,10 @@ const generateRandomLetter = () => {
 }
 
 .submitted-words li {
-  font-size: 1.1rem;
-  margin: 4px 0;
+  margin-bottom: 5px;
 }
 
+/* Score section */
 .points {
   text-align: center;
   margin-top: 20px;
